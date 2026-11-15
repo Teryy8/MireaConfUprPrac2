@@ -12,6 +12,7 @@ import (
 	"mirea/prac2/src/config"
 	"mirea/prac2/src/graph"
 	"mirea/prac2/src/npm"
+	"mirea/prac2/src/render"
 	"mirea/prac2/src/repository"
 )
 
@@ -64,7 +65,7 @@ func runAnalysis(cfg config.Config, path string, out io.Writer) error {
 	if cfg.LoadOrder {
 		return result.PrintLoadOrder(out)
 	}
-	return nil
+	return saveImage(cfg, path, result, out)
 }
 
 // selectSource открывает тестовый JSON или создаёт клиент реестра npm.
@@ -77,4 +78,17 @@ func selectSource(cfg config.Config, path string) (graph.Source, error) {
 		sourcePath = filepath.Join(filepath.Dir(path), sourcePath)
 	}
 	return repository.LoadTest(sourcePath)
+}
+
+// saveImage разрешает путь из настроек и сохраняет изображение графа.
+func saveImage(cfg config.Config, path string, result *graph.Graph, out io.Writer) error {
+	output := cfg.Output
+	if !filepath.IsAbs(output) {
+		output = filepath.Join(filepath.Dir(path), output)
+	}
+	if err := render.Save(context.Background(), result, output); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(out, "SVG:", output)
+	return err
 }

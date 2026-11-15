@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,6 +16,7 @@ import (
 )
 
 func TestCLIOutput(t *testing.T) {
+	requireGraphviz(t)
 	body := `{"name":"express","version":"4.18.2","dependencies":{"zeta":"~2.0.0","alpha":"^1.0.0"}}`
 	path := cliConfig(t, body, http.StatusOK)
 	var out, errOut bytes.Buffer
@@ -22,7 +26,7 @@ func TestCLIOutput(t *testing.T) {
 	}
 	expected := "Граф зависимостей:\nexpress@4.18.2 -> alpha@1.0.0, zeta@2.0.0\n" +
 		"alpha@1.0.0 -> (нет зависимостей)\nzeta@2.0.0 -> (нет зависимостей)\n"
-	if out.String() != expected {
+	if !strings.HasPrefix(out.String(), expected) || !strings.Contains(out.String(), "SVG:") {
 		t.Fatalf("неверный вывод: %q", out.String())
 	}
 }
@@ -97,6 +101,7 @@ func TestCLIRegistryErrors(t *testing.T) {
 }
 
 func TestCLIEmptyDependencies(t *testing.T) {
+	requireGraphviz(t)
 	var out, errOut bytes.Buffer
 	path := cliConfig(t, `{"name":"express","version":"4.18.2"}`, http.StatusOK)
 	if code := app.Run([]string{"--config", path}, &out, &errOut); code != 0 {
@@ -108,9 +113,27 @@ func TestCLIEmptyDependencies(t *testing.T) {
 }
 
 func TestCLITestMode(t *testing.T) {
+	requireGraphviz(t)
 	var out, errOut bytes.Buffer
-	code := app.Run([]string{"--config", "../configs/test.json"}, &out, &errOut)
+	values := settings()
+	absolute, err := filepath.Abs("../examples/repository.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	values["package"], values["test_mode"], values["repository"] = "A", true, absolute
+	path := writeJSON(t, values)
+	code := app.Run([]string{"--config", path}, &out, &errOut)
+	if _, err := os.Stat(filepath.Join(filepath.Dir(path), "graph.svg")); err != nil {
+		t.Fatal(err)
+	}
 	if code != 0 || errOut.Len() != 0 || !strings.Contains(out.String(), "A -> B, C") {
 		t.Fatalf("код %d: %s", code, &errOut)
+	}
+}
+
+func requireGraphviz(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("dot"); err != nil {
+		t.Skip("проверка SVG требует Graphviz")
 	}
 }

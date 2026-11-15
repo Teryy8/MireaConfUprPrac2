@@ -1,0 +1,9 @@
+{
+  "package": "supports-color",
+  "repository": "https://registry.npmjs.org",
+  "test_mode": false,
+  "version": "5.5.0",
+  "output": "../supports-color.svg",
+  "max_depth": 8,
+  "filter": ""
+}

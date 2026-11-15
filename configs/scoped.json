@@ -1,0 +1,9 @@
+{
+  "package": "@babel/code-frame",
+  "repository": "https://registry.npmjs.org",
+  "test_mode": false,
+  "version": "7.24.7",
+  "output": "graph.svg",
+  "max_depth": 3,
+  "filter": ""
+}

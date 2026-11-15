@@ -10,4 +10,5 @@ type Config struct {
 	Output     string `json:"output"`
 	MaxDepth   int    `json:"max_depth"`
 	Filter     string `json:"filter"`
+	LoadOrder  bool   `json:"load_order,omitempty"`
 }

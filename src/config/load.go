@@ -51,7 +51,7 @@ func checkFields(data []byte) error {
 	}
 	for key := range fields {
 		found := false
-		for _, allowed := range required {
+		for _, allowed := range append(required, "load_order") {
 			if key == allowed {
 				found = true
 				break
@@ -60,6 +60,14 @@ func checkFields(data []byte) error {
 		if !found {
 			return fmt.Errorf("JSON: неизвестное поле %s", key)
 		}
+	}
+	return checkLoadOrder(fields)
+}
+
+// checkLoadOrder запрещает null для дополнительного режима вывода.
+func checkLoadOrder(fields map[string]json.RawMessage) error {
+	if value, exists := fields["load_order"]; exists && bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+		return fmt.Errorf("поле load_order не может быть null")
 	}
 	return nil
 }

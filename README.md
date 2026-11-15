@@ -95,7 +95,27 @@ SVG появится на этапе 5.
 
 ## Этап 4. Порядок загрузки
 
-Ещё не реализован.
+- В JSON добавлен необязательный `load_order`: `true` включает вывод порядка загрузки.
+- Зависимости идут раньше использующих их пакетов, общие пакеты не повторяются.
+- Учитываются глубина и фильтр. При цикле порядок не строится, возвращается ошибка.
+
+```sh
+./run.sh --config configs/order-diamond.json   # D, B, C, A
+./run.sh --config configs/order-chain.json     # D, C, B, A
+./run.sh --config configs/order-depth.json     # B, C, A (глубина 1)
+./run.sh --config configs/order-filter.json    # D, C, A (без B)
+./run.sh --config configs/order-single.json    # A
+./run.sh --config configs/order-cycle.json     # ошибка: цикл
+./run.sh --config configs/order-npm.json       # is-number@6.0.0, is-odd@3.0.1
+```
+
+Сравнение с npm 11.12.1 выполнено в отдельной папке с зависимостью `is-odd@3.0.1`:
+`npm install --ignore-scripts --no-audit --no-fund --loglevel=silly`, затем `npm ls --all`.
+В логе `ADD` сначала `is-number`, затем `is-odd` — порядок и версии совпали.
+Метаданные npm запрашивал наоборот: сначала `is-odd`, затем `is-number`,
+поскольку зависимости становятся известны после чтения родительского пакета.
+Для независимых ветвей возможны разные правильные порядки; npm также использует параллельные операции.
+
 
 ## Этап 5. Graphviz и SVG
 

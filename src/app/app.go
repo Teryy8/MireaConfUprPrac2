@@ -61,6 +61,9 @@ func runAnalysis(cfg config.Config, path string, out io.Writer) error {
 	if err := result.Print(out); err != nil {
 		return fmt.Errorf("вывод графа: %w", err)
 	}
+	if cfg.LoadOrder {
+		return result.PrintLoadOrder(out)
+	}
 	return nil
 }
 

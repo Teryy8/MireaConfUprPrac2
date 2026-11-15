@@ -1,0 +1,9 @@
+{
+  "package": "A",
+  "repository": "../examples/repository-cycle.json",
+  "test_mode": true,
+  "version": "1.0.0",
+  "output": "graph.svg",
+  "max_depth": 3,
+  "filter": ""
+}

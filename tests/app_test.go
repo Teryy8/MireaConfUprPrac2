@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,7 +20,8 @@ func TestCLIOutput(t *testing.T) {
 	if code != 0 || errOut.Len() != 0 {
 		t.Fatalf("код %d: %s", code, errOut.String())
 	}
-	expected := "Прямые зависимости express@4.18.2:\n  alpha: ^1.0.0\n  zeta: ~2.0.0\n"
+	expected := "Граф зависимостей:\nexpress@4.18.2 -> alpha@1.0.0, zeta@2.0.0\n" +
+		"alpha@1.0.0 -> (нет зависимостей)\nzeta@2.0.0 -> (нет зависимостей)\n"
 	if out.String() != expected {
 		t.Fatalf("неверный вывод: %q", out.String())
 	}
@@ -56,7 +58,7 @@ func TestCLIWriteError(t *testing.T) {
 	var errOut bytes.Buffer
 	path := cliConfig(t, `{"name":"express","version":"4.18.2"}`, http.StatusOK)
 	code := app.Run([]string{"--config", path}, failedWriter{}, &errOut)
-	if code != 1 || !strings.Contains(errOut.String(), "вывод зависимостей") {
+	if code != 1 || !strings.Contains(errOut.String(), "вывод графа") {
 		t.Fatalf("код %d: %s", code, &errOut)
 	}
 }
@@ -65,7 +67,17 @@ func cliConfig(t *testing.T, body string, status int) string {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(status)
-		_, _ = w.Write([]byte(body))
+		payload := body
+		for _, name := range []string{"alpha", "zeta"} {
+			if r.URL.Path == "/"+name {
+				version := "1.0.0"
+				if name == "zeta" {
+					version = "2.0.0"
+				}
+				payload = fmt.Sprintf(`{"name":%q,"versions":{%q:{"name":%q,"version":%q}}}`, name, version, name, version)
+			}
+		}
+		_, _ = w.Write([]byte(payload))
 	}))
 	t.Cleanup(server.Close)
 	values := settings()
@@ -95,10 +107,10 @@ func TestCLIEmptyDependencies(t *testing.T) {
 	}
 }
 
-func TestCLITestModeIsDeferred(t *testing.T) {
+func TestCLITestMode(t *testing.T) {
 	var out, errOut bytes.Buffer
 	code := app.Run([]string{"--config", "../configs/test.json"}, &out, &errOut)
-	if code != 1 || out.Len() != 0 || !strings.Contains(errOut.String(), "этапе 3") {
+	if code != 0 || errOut.Len() != 0 || !strings.Contains(out.String(), "A -> B, C") {
 		t.Fatalf("код %d: %s", code, &errOut)
 	}
 }

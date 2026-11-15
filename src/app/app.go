@@ -1,4 +1,4 @@
-// Package app загружает настройки CLI и выводит прямые зависимости npm-пакета.
+// Package app загружает настройки CLI, выбирает источник и выводит граф зависимостей.
 package app
 
 import (
@@ -7,9 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"mirea/prac2/src/config"
+	"mirea/prac2/src/graph"
 	"mirea/prac2/src/npm"
+	"mirea/prac2/src/repository"
 )
 
 const (
@@ -37,25 +40,38 @@ func Run(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "Ошибка:", err)
 		return exitError
 	}
-	if err := runAnalysis(cfg, out); err != nil {
+	if err := runAnalysis(cfg, *path, out); err != nil {
 		fmt.Fprintln(errOut, "Ошибка:", err)
 		return exitError
 	}
 	return exitOK
 }
 
-// runAnalysis получает и выводит прямые зависимости без обхода графа.
-func runAnalysis(cfg config.Config, out io.Writer) error {
-	if cfg.TestMode {
-		return fmt.Errorf("тестовый репозиторий будет поддержан на этапе 3; укажите test_mode=false")
-	}
-	client := npm.NewClient(cfg.Repository, nil)
-	dependencies, err := client.Dependencies(context.Background(), cfg.Package, cfg.Version)
+// runAnalysis строит и выводит граф из выбранного источника.
+func runAnalysis(cfg config.Config, path string, out io.Writer) error {
+	source, err := selectSource(cfg, path)
 	if err != nil {
 		return err
 	}
-	if err := npm.Print(out, cfg.Package, cfg.Version, dependencies); err != nil {
-		return fmt.Errorf("вывод зависимостей: %w", err)
+	result, err := graph.Build(context.Background(), source, cfg.Package, cfg.Version,
+		graph.Options{MaxDepth: cfg.MaxDepth, Filter: cfg.Filter})
+	if err != nil {
+		return err
+	}
+	if err := result.Print(out); err != nil {
+		return fmt.Errorf("вывод графа: %w", err)
 	}
 	return nil
+}
+
+// selectSource открывает тестовый JSON или создаёт клиент реестра npm.
+func selectSource(cfg config.Config, path string) (graph.Source, error) {
+	if !cfg.TestMode {
+		return repository.NPM{Client: npm.NewClient(cfg.Repository, nil)}, nil
+	}
+	sourcePath := cfg.Repository
+	if !filepath.IsAbs(sourcePath) {
+		sourcePath = filepath.Join(filepath.Dir(path), sourcePath)
+	}
+	return repository.LoadTest(sourcePath)
 }
